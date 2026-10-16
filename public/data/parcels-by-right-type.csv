@@ -1,0 +1,151 @@
+province_name,district_name,sector_name,cell_name,description,total_parcels
+Kigali City,Gasabo,Gasabo Sector 1,Cell 1B,Freehold,5049
+Kigali City,Gasabo,Gasabo Sector 1,Cell 1A,Emphyteutic lease,19707
+Kigali City,Gasabo,Gasabo Sector 1,Cell 1D,Ordinary lease,2619
+Kigali City,Gasabo,Gasabo Sector 1,Cell 1A,State land,1169
+Kigali City,Gasabo,Gasabo Sector 1,Cell 1A,Customary,6659
+Kigali City,Gasabo,Gasabo Sector 2,Cell 2C,Freehold,1044
+Kigali City,Gasabo,Gasabo Sector 2,Cell 2B,Emphyteutic lease,25815
+Kigali City,Gasabo,Gasabo Sector 2,Cell 2C,Ordinary lease,4613
+Kigali City,Gasabo,Gasabo Sector 2,Cell 2B,State land,1819
+Kigali City,Gasabo,Gasabo Sector 2,Cell 2C,Customary,3592
+Kigali City,Kicukiro,Kicukiro Sector 1,Cell 1A,Freehold,4344
+Kigali City,Kicukiro,Kicukiro Sector 1,Cell 1C,Emphyteutic lease,9747
+Kigali City,Kicukiro,Kicukiro Sector 1,Cell 1B,Ordinary lease,5156
+Kigali City,Kicukiro,Kicukiro Sector 1,Cell 1C,State land,6181
+Kigali City,Kicukiro,Kicukiro Sector 1,Cell 1A,Customary,5608
+Kigali City,Kicukiro,Kicukiro Sector 2,Cell 2D,Freehold,8369
+Kigali City,Kicukiro,Kicukiro Sector 2,Cell 2B,Emphyteutic lease,8976
+Kigali City,Kicukiro,Kicukiro Sector 2,Cell 2B,Ordinary lease,7839
+Kigali City,Kicukiro,Kicukiro Sector 2,Cell 2C,State land,1543
+Kigali City,Kicukiro,Kicukiro Sector 2,Cell 2C,Customary,198
+Kigali City,Nyarugenge,Nyarugenge Sector 1,Cell 1C,Freehold,5187
+Kigali City,Nyarugenge,Nyarugenge Sector 1,Cell 1B,Emphyteutic lease,20586
+Kigali City,Nyarugenge,Nyarugenge Sector 1,Cell 1D,Ordinary lease,4801
+Kigali City,Nyarugenge,Nyarugenge Sector 1,Cell 1D,State land,7475
+Kigali City,Nyarugenge,Nyarugenge Sector 1,Cell 1B,Customary,3901
+Kigali City,Nyarugenge,Nyarugenge Sector 2,Cell 2C,Freehold,4334
+Kigali City,Nyarugenge,Nyarugenge Sector 2,Cell 2A,Emphyteutic lease,4224
+Kigali City,Nyarugenge,Nyarugenge Sector 2,Cell 2A,Ordinary lease,7660
+Kigali City,Nyarugenge,Nyarugenge Sector 2,Cell 2C,State land,8581
+Kigali City,Nyarugenge,Nyarugenge Sector 2,Cell 2D,Customary,5697
+Northern,Musanze,Musanze Sector 1,Cell 1B,Freehold,3284
+Northern,Musanze,Musanze Sector 1,Cell 1A,Emphyteutic lease,20529
+Northern,Musanze,Musanze Sector 1,Cell 1B,Ordinary lease,7307
+Northern,Musanze,Musanze Sector 1,Cell 1C,State land,3089
+Northern,Musanze,Musanze Sector 1,Cell 1C,Customary,7222
+Northern,Musanze,Musanze Sector 2,Cell 2C,Freehold,3335
+Northern,Musanze,Musanze Sector 2,Cell 2C,Emphyteutic lease,5202
+Northern,Musanze,Musanze Sector 2,Cell 2A,Ordinary lease,3829
+Northern,Musanze,Musanze Sector 2,Cell 2C,State land,3969
+Northern,Musanze,Musanze Sector 2,Cell 2A,Customary,5504
+Northern,Gicumbi,Gicumbi Sector 1,Cell 1B,Freehold,4846
+Northern,Gicumbi,Gicumbi Sector 1,Cell 1D,Emphyteutic lease,1500
+Northern,Gicumbi,Gicumbi Sector 1,Cell 1A,Ordinary lease,5930
+Northern,Gicumbi,Gicumbi Sector 1,Cell 1A,State land,4760
+Northern,Gicumbi,Gicumbi Sector 1,Cell 1C,Customary,377
+Northern,Gicumbi,Gicumbi Sector 2,Cell 2C,Freehold,4814
+Northern,Gicumbi,Gicumbi Sector 2,Cell 2C,Emphyteutic lease,7755
+Northern,Gicumbi,Gicumbi Sector 2,Cell 2D,Ordinary lease,1353
+Northern,Gicumbi,Gicumbi Sector 2,Cell 2C,State land,3216
+Northern,Gicumbi,Gicumbi Sector 2,Cell 2D,Customary,4864
+Northern,Burera,Burera Sector 1,Cell 1B,Freehold,4176
+Northern,Burera,Burera Sector 1,Cell 1D,Emphyteutic lease,8049
+Northern,Burera,Burera Sector 1,Cell 1C,Ordinary lease,233
+Northern,Burera,Burera Sector 1,Cell 1C,State land,813
+Northern,Burera,Burera Sector 1,Cell 1D,Customary,2858
+Northern,Burera,Burera Sector 2,Cell 2C,Freehold,6022
+Northern,Burera,Burera Sector 2,Cell 2C,Emphyteutic lease,5010
+Northern,Burera,Burera Sector 2,Cell 2D,Ordinary lease,3475
+Northern,Burera,Burera Sector 2,Cell 2D,State land,3486
+Northern,Burera,Burera Sector 2,Cell 2A,Customary,1052
+Southern,Huye,Huye Sector 1,Cell 1A,Freehold,985
+Southern,Huye,Huye Sector 1,Cell 1B,Emphyteutic lease,7593
+Southern,Huye,Huye Sector 1,Cell 1A,Ordinary lease,8119
+Southern,Huye,Huye Sector 1,Cell 1B,State land,5346
+Southern,Huye,Huye Sector 1,Cell 1A,Customary,2083
+Southern,Huye,Huye Sector 2,Cell 2C,Freehold,6786
+Southern,Huye,Huye Sector 2,Cell 2B,Emphyteutic lease,23721
+Southern,Huye,Huye Sector 2,Cell 2B,Ordinary lease,4042
+Southern,Huye,Huye Sector 2,Cell 2D,State land,6807
+Southern,Huye,Huye Sector 2,Cell 2D,Customary,684
+Southern,Nyanza,Nyanza Sector 1,Cell 1B,Freehold,6981
+Southern,Nyanza,Nyanza Sector 1,Cell 1D,Emphyteutic lease,12456
+Southern,Nyanza,Nyanza Sector 1,Cell 1D,Ordinary lease,3614
+Southern,Nyanza,Nyanza Sector 1,Cell 1D,State land,3155
+Southern,Nyanza,Nyanza Sector 1,Cell 1A,Customary,683
+Southern,Nyanza,Nyanza Sector 2,Cell 2C,Freehold,4231
+Southern,Nyanza,Nyanza Sector 2,Cell 2B,Emphyteutic lease,26076
+Southern,Nyanza,Nyanza Sector 2,Cell 2B,Ordinary lease,3872
+Southern,Nyanza,Nyanza Sector 2,Cell 2D,State land,4367
+Southern,Nyanza,Nyanza Sector 2,Cell 2B,Customary,5405
+Southern,Muhanga,Muhanga Sector 1,Cell 1A,Freehold,5233
+Southern,Muhanga,Muhanga Sector 1,Cell 1A,Emphyteutic lease,20046
+Southern,Muhanga,Muhanga Sector 1,Cell 1A,Ordinary lease,8178
+Southern,Muhanga,Muhanga Sector 1,Cell 1D,State land,1602
+Southern,Muhanga,Muhanga Sector 1,Cell 1D,Customary,3535
+Southern,Muhanga,Muhanga Sector 2,Cell 2B,Freehold,5594
+Southern,Muhanga,Muhanga Sector 2,Cell 2C,Emphyteutic lease,23400
+Southern,Muhanga,Muhanga Sector 2,Cell 2C,Ordinary lease,6961
+Southern,Muhanga,Muhanga Sector 2,Cell 2B,State land,4475
+Southern,Muhanga,Muhanga Sector 2,Cell 2C,Customary,6505
+Eastern,Rwamagana,Rwamagana Sector 1,Cell 1D,Freehold,1298
+Eastern,Rwamagana,Rwamagana Sector 1,Cell 1C,Emphyteutic lease,9639
+Eastern,Rwamagana,Rwamagana Sector 1,Cell 1A,Ordinary lease,6548
+Eastern,Rwamagana,Rwamagana Sector 1,Cell 1B,State land,4494
+Eastern,Rwamagana,Rwamagana Sector 1,Cell 1A,Customary,2820
+Eastern,Rwamagana,Rwamagana Sector 2,Cell 2D,Freehold,7816
+Eastern,Rwamagana,Rwamagana Sector 2,Cell 2D,Emphyteutic lease,19431
+Eastern,Rwamagana,Rwamagana Sector 2,Cell 2B,Ordinary lease,133
+Eastern,Rwamagana,Rwamagana Sector 2,Cell 2B,State land,2648
+Eastern,Rwamagana,Rwamagana Sector 2,Cell 2A,Customary,4296
+Eastern,Kayonza,Kayonza Sector 1,Cell 1A,Freehold,6564
+Eastern,Kayonza,Kayonza Sector 1,Cell 1D,Emphyteutic lease,11166
+Eastern,Kayonza,Kayonza Sector 1,Cell 1A,Ordinary lease,3384
+Eastern,Kayonza,Kayonza Sector 1,Cell 1B,State land,5497
+Eastern,Kayonza,Kayonza Sector 1,Cell 1D,Customary,8704
+Eastern,Kayonza,Kayonza Sector 2,Cell 2D,Freehold,512
+Eastern,Kayonza,Kayonza Sector 2,Cell 2A,Emphyteutic lease,1920
+Eastern,Kayonza,Kayonza Sector 2,Cell 2A,Ordinary lease,8089
+Eastern,Kayonza,Kayonza Sector 2,Cell 2C,State land,2353
+Eastern,Kayonza,Kayonza Sector 2,Cell 2A,Customary,6020
+Eastern,Nyagatare,Nyagatare Sector 1,Cell 1A,Freehold,8648
+Eastern,Nyagatare,Nyagatare Sector 1,Cell 1A,Emphyteutic lease,14835
+Eastern,Nyagatare,Nyagatare Sector 1,Cell 1C,Ordinary lease,1304
+Eastern,Nyagatare,Nyagatare Sector 1,Cell 1A,State land,8982
+Eastern,Nyagatare,Nyagatare Sector 1,Cell 1D,Customary,6324
+Eastern,Nyagatare,Nyagatare Sector 2,Cell 2B,Freehold,5178
+Eastern,Nyagatare,Nyagatare Sector 2,Cell 2D,Emphyteutic lease,11724
+Eastern,Nyagatare,Nyagatare Sector 2,Cell 2D,Ordinary lease,6634
+Eastern,Nyagatare,Nyagatare Sector 2,Cell 2A,State land,1344
+Eastern,Nyagatare,Nyagatare Sector 2,Cell 2A,Customary,6074
+Western,Rubavu,Rubavu Sector 1,Cell 1D,Freehold,6893
+Western,Rubavu,Rubavu Sector 1,Cell 1D,Emphyteutic lease,3528
+Western,Rubavu,Rubavu Sector 1,Cell 1B,Ordinary lease,5032
+Western,Rubavu,Rubavu Sector 1,Cell 1D,State land,7001
+Western,Rubavu,Rubavu Sector 1,Cell 1A,Customary,2822
+Western,Rubavu,Rubavu Sector 2,Cell 2C,Freehold,2747
+Western,Rubavu,Rubavu Sector 2,Cell 2B,Emphyteutic lease,7578
+Western,Rubavu,Rubavu Sector 2,Cell 2C,Ordinary lease,8177
+Western,Rubavu,Rubavu Sector 2,Cell 2C,State land,4317
+Western,Rubavu,Rubavu Sector 2,Cell 2A,Customary,2844
+Western,Karongi,Karongi Sector 1,Cell 1A,Freehold,5188
+Western,Karongi,Karongi Sector 1,Cell 1A,Emphyteutic lease,5685
+Western,Karongi,Karongi Sector 1,Cell 1D,Ordinary lease,8013
+Western,Karongi,Karongi Sector 1,Cell 1A,State land,8611
+Western,Karongi,Karongi Sector 1,Cell 1B,Customary,6816
+Western,Karongi,Karongi Sector 2,Cell 2C,Freehold,5925
+Western,Karongi,Karongi Sector 2,Cell 2B,Emphyteutic lease,9105
+Western,Karongi,Karongi Sector 2,Cell 2A,Ordinary lease,947
+Western,Karongi,Karongi Sector 2,Cell 2C,State land,8994
+Western,Karongi,Karongi Sector 2,Cell 2D,Customary,5087
+Western,Rusizi,Rusizi Sector 1,Cell 1D,Freehold,7322
+Western,Rusizi,Rusizi Sector 1,Cell 1D,Emphyteutic lease,7152
+Western,Rusizi,Rusizi Sector 1,Cell 1C,Ordinary lease,6013
+Western,Rusizi,Rusizi Sector 1,Cell 1C,State land,2263
+Western,Rusizi,Rusizi Sector 1,Cell 1D,Customary,1432
+Western,Rusizi,Rusizi Sector 2,Cell 2B,Freehold,2990
+Western,Rusizi,Rusizi Sector 2,Cell 2C,Emphyteutic lease,18522
+Western,Rusizi,Rusizi Sector 2,Cell 2B,Ordinary lease,5821
+Western,Rusizi,Rusizi Sector 2,Cell 2A,State land,1342
+Western,Rusizi,Rusizi Sector 2,Cell 2D,Customary,3023

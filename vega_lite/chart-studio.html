@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--
+  CSV Chart Studio
+  Upload a CSV, get chart suggestions, fine-tune them and copy the Vega-Lite spec.
+  Run it: double-click this file, or serve the folder with
+      python -m http.server 8000
+  and open http://localhost:8000/chart-studio.html
+  Needs an internet connection the first time, to load Vega-Lite, PapaParse and the fonts.
+-->
+<style>
+:root{color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>CSV Chart Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a two-pane workbench. Left rail = data → columns → suggestions (a real sequence); right = the chart stage with its controls. Stacks on phones. */
+:root{
+  --bg:#eef2f1; --surface:#ffffff; --sunk:#f6f8f7; --ink:#17211f; --muted:#5a6a66; --line:#d5dedb;
+  --accent:#1f5bc4; --accent-ink:#ffffff; --accent-soft:#e2ebfa;
+  --warn:#9a5a0b; --warn-soft:#fbefda; --info:#2b5f6e; --info-soft:#e1eff2;
+  --t-q:#1f5bc4; --t-t:#227a55; --t-n:#7a4fb0; --t-id:#7b7f7e;
+  --font-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --font-body:"Public Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1514; --surface:#161e1d; --sunk:#121918; --ink:#e4ebe9; --muted:#93a39f; --line:#28332f;
+  --accent:#7ea6f4; --accent-ink:#0d1626; --accent-soft:#1c2943;
+  --warn:#e7a855; --warn-soft:#33270f; --info:#86c3d2; --info-soft:#15292e;
+  --t-q:#7ea6f4; --t-t:#6cc79a; --t-n:#b89ae6; --t-id:#8d9592; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1514; --surface:#161e1d; --sunk:#121918; --ink:#e4ebe9; --muted:#93a39f; --line:#28332f;
+  --accent:#7ea6f4; --accent-ink:#0d1626; --accent-soft:#1c2943;
+  --warn:#e7a855; --warn-soft:#33270f; --info:#86c3d2; --info-soft:#15292e;
+  --t-q:#7ea6f4; --t-t:#6cc79a; --t-n:#b89ae6; --t-id:#8d9592; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:24px 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 24px;margin-bottom:20px}
+h1{font-family:var(--font-display);font-weight:700;font-size:28px;letter-spacing:-.01em;margin:0;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.vl{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.rail{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.step{display:flex;align-items:baseline;gap:8px;margin:0 0 12px}
+.step b{font-family:var(--font-mono);font-size:11px;color:var(--accent);font-weight:500}
+.step h2{font-family:var(--font-display);font-size:16px;font-weight:600;margin:0}
+.step span{margin-left:auto;font-size:12px;color:var(--muted)}
+
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;border:1.5px dashed var(--line);border-radius:8px;padding:18px 12px;background:var(--sunk);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-weight:600}
+.drop small{color:var(--muted)}
+.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+#file{position:absolute;width:1px;height:1px;opacity:0}
+.status{margin-top:10px;font-size:13px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.status .name{font-family:var(--font-mono);font-size:12px;word-break:break-all}
+.badge{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 7px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.err{color:var(--warn);font-size:13px;margin-top:8px}
+details.paste{margin-top:10px}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+details summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+textarea{width:100%;min-height:96px;margin-top:8px;font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink);padding:8px;resize:vertical}
+
+.cols{display:flex;flex-direction:column;gap:2px;max-height:340px;overflow:auto;margin-inline:-6px}
+.col{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:7px 6px;border-radius:6px}
+.col:hover{background:var(--sunk)}
+.col .cn{font-family:var(--font-mono);font-size:12.5px;overflow-wrap:anywhere;min-width:0}
+.col .meta{grid-column:1/-1;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.col.id .cn{color:var(--muted)}
+.tsel{font:600 10.5px var(--font-body);letter-spacing:.05em;text-transform:uppercase;border-radius:99px;padding:2px 6px;border:1px solid currentColor;background:transparent;cursor:pointer}
+.tsel.quantitative{color:var(--t-q)} .tsel.temporal{color:var(--t-t)} .tsel.nominal{color:var(--t-n)} .tsel.id{color:var(--t-id)}
+.tsel option{color:var(--ink);background:var(--surface)}
+
+.focus{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--muted)}
+.focus select{flex:1;min-width:0}
+.sugs{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.sug{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;text-align:left;width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;transition:border-color .15s,background .15s}
+.sug:hover{border-color:var(--accent)}
+.sug:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sug.on{border-color:var(--accent);background:var(--accent-soft)}
+.sug svg{width:44px;height:32px;color:var(--accent)}
+.sug strong{display:block;font-weight:600;font-size:13.5px}
+.sug span{display:block;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.empty{font-size:13px;color:var(--muted)}
+
+.stage{display:flex;flex-direction:column;gap:12px;min-width:0}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px;align-items:end}
+.ctl{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ctl label,.lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+select,input[type=text]{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:7px 8px;min-width:0}
+select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.toggles{display:flex;flex-wrap:wrap;gap:6px 14px;grid-column:1/-1}
+.tg{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.tg input{accent-color:var(--accent);width:15px;height:15px}
+.chartbox{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 12px;min-width:0}
+#vis{width:100%;min-height:340px}
+#vis .placeholder{display:flex;align-items:center;justify-content:center;min-height:340px;color:var(--muted);text-align:center;padding:16px}
+.hints{display:flex;flex-direction:column;gap:6px}
+.hint{font-size:13px;padding:8px 12px;border-radius:6px;border-left:3px solid currentColor}
+.hint.warn{background:var(--warn-soft);color:var(--warn)}
+.hint.info{background:var(--info-soft);color:var(--info)}
+.hint b{font-family:var(--font-mono);font-weight:500;font-size:12px}
+.drawer{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
+.drawer > summary{font-weight:600;color:var(--ink);font-size:14px}
+.drawer[open] > summary{margin-bottom:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.btn{font:600 13px var(--font-body);padding:7px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.copied{font-size:12px;color:var(--muted)}
+.code{overflow:auto;max-height:360px;background:var(--sunk);border:1px solid var(--line);border-radius:6px}
+pre{margin:0;padding:12px;font-family:var(--font-mono);font-size:12px;line-height:1.55;color:var(--ink)}
+.tablebox{overflow-x:auto}
+table{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+th,td{padding:5px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{font-family:var(--font-mono);font-weight:500;color:var(--muted);font-size:12px}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0}
+a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>CSV Chart Studio</h1>
+      <p>Upload a CSV. The studio reads each column, suggests charts that suit your data, and lets you adjust the chart and copy its Vega-Lite spec.</p>
+    </div>
+    <div class="vl">Vega-Lite 5</div>
+  </header>
+
+  <div class="grid">
+    <div class="rail">
+      <section class="panel" aria-labelledby="s1">
+        <div class="step"><b>01</b><h2 id="s1">Data</h2></div>
+        <label class="drop" id="drop" for="file">
+          <strong>Drop a CSV here or choose a file</strong>
+          <small>First row should hold the column names. Your file stays in this browser.</small>
+          <input type="file" id="file" accept=".csv,text/csv,.tsv,.txt">
+        </label>
+        <div class="status" id="status"></div>
+        <div class="err" id="err" hidden></div>
+        <details class="paste">
+          <summary>Or paste CSV text</summary>
+          <textarea id="pasteText" placeholder="name,value&#10;A,10&#10;B,14"></textarea>
+          <div class="row" style="margin-top:8px"><button class="btn ghost" id="pasteBtn" type="button">Use pasted data</button></div>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="s2">
+        <div class="step"><b>02</b><h2 id="s2">Columns</h2><span>Click a type to change it</span></div>
+        <div class="cols" id="cols"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="s3">
+        <div class="step"><b>03</b><h2 id="s3">Suggested charts</h2></div>
+        <div class="focus" id="focusRow"><label for="focus">Measure</label><select id="focus"></select></div>
+        <div class="sugs" id="sugs"></div>
+      </section>
+    </div>
+
+    <main class="stage">
+      <div class="panel">
+        <div class="controls">
+          <div class="ctl"><label for="mark">Chart type</label>
+            <select id="mark">
+              <optgroup label="Compare">
+                <option value="bar">Bar</option>
+                <option value="lollipop">Lollipop</option>
+                <option value="rect">Heatmap</option>
+              </optgroup>
+              <optgroup label="Change over time">
+                <option value="line">Line</option>
+                <option value="area">Area</option>
+                <option value="cumline">Running total</option>
+              </optgroup>
+              <optgroup label="Distribution">
+                <option value="histogram">Histogram</option>
+                <option value="density">Density curve</option>
+                <option value="boxplot">Box plot</option>
+                <option value="strip">Strip plot</option>
+              </optgroup>
+              <optgroup label="Relationship">
+                <option value="point">Scatter</option>
+                <option value="bubble">Bubble</option>
+              </optgroup>
+              <optgroup label="Part of whole">
+                <option value="arc">Donut</option>
+                <option value="pie">Pie</option>
+              </optgroup>
+            </select></div>
+          <div class="ctl"><label for="variant">Style</label><select id="variant"></select></div>
+          <div class="ctl" id="cx"><label for="fx" id="lx">X axis</label><select id="fx"></select></div>
+          <div class="ctl" id="cy"><label for="fy" id="ly">Y axis</label><select id="fy"></select></div>
+          <div class="ctl" id="cagg"><label for="agg">Summarise by</label>
+            <select id="agg">
+              <option value="sum">Total (sum)</option>
+              <option value="mean">Average (mean)</option>
+              <option value="median">Median</option>
+              <option value="min">Minimum</option>
+              <option value="max">Maximum</option>
+              <option value="none">No summary (each row)</option>
+            </select></div>
+          <div class="ctl" id="cc"><label for="fc" id="lc">Colour by</label><select id="fc"></select></div>
+          <div class="ctl" id="cs" hidden><label for="fs">Size by</label><select id="fs"></select></div>
+
+          <div class="ctl"><label for="title">Title</label><input type="text" id="title" placeholder="Automatic"></div>
+          <div class="toggles">
+            <label class="tg" id="tsort"><input type="checkbox" id="sort" checked> Sort largest first</label>
+            <label class="tg" id="thoriz"><input type="checkbox" id="horiz"> Horizontal</label>
+            <label class="tg" id="tlog"><input type="checkbox" id="log"> Log scale</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="chartbox"><div id="vis"></div></div>
+      <div class="hints" id="hints"></div>
+
+      <details class="drawer" id="specDrawer">
+        <summary>Vega-Lite spec</summary>
+        <div class="row">
+          <button class="btn" type="button" id="copySpec">Copy spec</button>
+          <button class="btn ghost" type="button" id="copyData">Copy spec with data</button>
+          <span class="copied" id="copied" aria-live="polite"></span>
+        </div>
+        <div class="code"><pre id="spec"></pre></div>
+        <p class="note">The spec points at your CSV by file name. Use “Copy spec with data” to paste a self-contained chart into the <a href="https://vega.github.io/editor/" target="_blank" rel="noopener">Vega Editor</a>, Observable or a notebook.</p>
+      </details>
+
+      <details class="drawer">
+        <summary>Data preview</summary>
+        <div class="tablebox" id="preview"></div>
+      </details>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NUM_RE = /^[-+]?(\d{1,3}(,\d{3})+|\d+)?(\.\d+)?%?$/;
+const ISO_RE = /^\d{4}-\d{1,2}(-\d{1,2})?([T ]\d{1,2}:\d{2}(:\d{2})?.*)?$/;
+const toNum = v => Number(String(v).replace(/[,%]/g,''));
+const fmt = v => v==null ? '' : Math.abs(v) >= 1000 ? v.toLocaleString(undefined,{maximumFractionDigits:0}) : (+v.toFixed(2)).toString();
+const AGG = {sum:'Total',mean:'Average',median:'Median',min:'Minimum',max:'Maximum',none:''};
+const TYPE_LABEL = {quantitative:'Number',temporal:'Date',nominal:'Category',id:'ID'};
+
+const S = {name:'',rows:[],fields:[],prof:{},types:{},focus:null,typed:null,isSample:false,active:-1,
+  enc:{mark:'bar',x:null,y:null,agg:'sum',color:null,size:null,variant:null,sort:true,horizontal:false,log:false,title:''}};
+
+/* ---------- profiling ---------- */
+function profileField(f){
+  const vals = S.rows.map(r => r[f]==null ? '' : String(r[f]).trim()).filter(v => v!=='');
+  const n = S.rows.length, missing = n - vals.length, uniq = new Set(vals).size;
+  const isNum = vals.length>0 && vals.every(v => NUM_RE.test(v) && /\d/.test(v));
+  let stats=null, isYear=false, isSeq=false;
+  if(isNum){
+    const nums = vals.map(toNum), sorted = [...nums].sort((a,b)=>a-b);
+    const q = p => { const i=(sorted.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo); };
+    const isInt = nums.every(Number.isInteger);
+    stats = {min:sorted[0],max:sorted[sorted.length-1],mean:nums.reduce((a,b)=>a+b,0)/nums.length,median:q(.5),q1:q(.25),q3:q(.75)};
+    isYear = isInt && stats.min>=1900 && stats.max<=2100 && (/year|yr/i.test(f) || uniq < vals.length);
+    isSeq = isInt && !isYear && uniq===vals.length && stats.max-stats.min+1===uniq;
+  }
+  const isDate = !isNum && vals.length>0 && vals.every(v => ISO_RE.test(v) && !isNaN(Date.parse(v)));
+  const idName = /(^|[_\s-])id$|^id([_\s-]|$)|uuid|^rank$|^index$|^row(_?num(ber)?)?$/i.test(f);
+  let type = (isYear||isDate) ? 'temporal' : isNum ? 'quantitative' : 'nominal';
+  if(!isYear && ((isSeq && (idName || vals.length>=5)) || (idName && uniq===vals.length))) type='id';
+  let skew=false;
+  if(stats && stats.median>0){ const iqr=stats.q3-stats.q1; skew = stats.mean>1.4*stats.median || (iqr>0 && stats.max>stats.q3+3*iqr); }
+  const rateLike = /pct|percent|rate|ratio|share|avg|mean|%/i.test(f) || vals.some(v=>v.endsWith('%'));
+  const sample = [...new Set(vals)].slice(0,4);
+  const dates = isDate||isYear ? [...vals].sort() : null;
+  return {f,n,missing,uniq,isNum,isYear,isDate,stats,skew,rateLike,auto:type,sample,first:dates&&dates[0],last:dates&&dates[dates.length-1]};
+}
+function typeRows(){
+  S.typed = S.rows.map(r => { const o={};
+    for(const f of S.fields){ const s = r[f]==null ? '' : String(r[f]).trim(), t = S.types[f];
+      if(s===''){ o[f]=null; continue; }
+      if(t==='quantitative'){ const x=toNum(s); o[f]=isFinite(x)?x:null; }
+      else if(t==='temporal') o[f] = S.prof[f].isYear ? s+'-01-01' : s;
+      else o[f]=s; }
+    return o; });
+}
+
+/* ---------- loading ---------- */
+function load(rows, fields, name, isSample){
+  fields = (fields||[]).map((h,i)=> (h && String(h).trim()) || ('column_'+(i+1)));
+  if(!fields.length || !rows.length){ showErr('That file has no rows I could read. Check that the first line holds column names and that values are separated by commas.'); return; }
+  $('#err').hidden = true;
+  S.rows = rows; S.fields = fields; S.name = name; S.isSample = !!isSample; S.prof = {}; S.types = {};
+  fields.forEach(f => { S.prof[f] = profileField(f); S.types[f] = S.prof[f].auto; });
+  typeRows();
+  const q = fields.filter(f=>S.types[f]==='quantitative');
+  S.focus = q[0] || null;
+  renderStatus(); renderCols(); renderFocus(); renderPreview();
+  const sugs = renderSugs();
+  if(sugs.length) applySug(0, sugs); else { autoPick(); syncControls(); render(); }
+}
+function showErr(m){ const e=$('#err'); e.textContent=m; e.hidden=false; }
+function parseText(text, name){
+  const res = Papa.parse(text.trim(), {header:true, skipEmptyLines:'greedy', transformHeader:h=>h.trim()});
+  load(res.data, res.meta.fields, name);
+}
+$('#file').addEventListener('change', e => { const f=e.target.files[0]; if(f) readFile(f); e.target.value=''; });
+function readFile(file){
+  Papa.parse(file, {header:true, skipEmptyLines:'greedy', transformHeader:h=>h.trim(),
+    complete: res => load(res.data, res.meta.fields, file.name),
+    error: () => showErr('The file could not be read. Try saving it again as CSV (UTF-8).')});
+}
+const drop = $('#drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+$('#pasteBtn').addEventListener('click', () => { const t=$('#pasteText').value; if(t.trim()) parseText(t,'pasted.csv'); });
+
+function renderStatus(){
+  $('#status').innerHTML = (S.isSample ? '<span class="badge">Example</span>' : '') +
+    `<span class="name">${esc(S.name)}</span><span>· ${S.rows.length.toLocaleString()} rows · ${S.fields.length} columns</span>`;
+}
+
+/* ---------- columns ---------- */
+function colMeta(p, t){
+  const bits = [];
+  if(t==='quantitative' && p.stats) bits.push(`median ${fmt(p.stats.median)}`, `range ${fmt(p.stats.min)} to ${fmt(p.stats.max)}`);
+  else if(t==='temporal' && p.first) bits.push(`${p.first} to ${p.last}`);
+  else if(t==='nominal') bits.push(`${p.uniq} unique${p.uniq<=4 ? ': '+p.sample.join(', ') : ''}`);
+  else if(t==='id') bits.push('Looks like an ID or rank, so it is left out of suggestions');
+  if(p.missing) bits.push(`${p.missing} empty`);
+  if(t==='quantitative' && p.skew) bits.push('skewed');
+  return bits.join(' · ');
+}
+function renderCols(){
+  $('#cols').innerHTML = S.fields.map((f,i) => { const t=S.types[f], p=S.prof[f];
+    return `<div class="col ${t==='id'?'id':''}"><span class="cn">${esc(f)}</span>
+      <select class="tsel ${t}" data-f="${i}" aria-label="Type of ${esc(f)}">${Object.keys(TYPE_LABEL).map(k=>`<option value="${k}" ${k===t?'selected':''}>${TYPE_LABEL[k]}</option>`).join('')}</select>
+      <span class="meta">${esc(colMeta(p,t))}</span></div>`; }).join('');
+}
+$('#cols').addEventListener('change', e => {
+  if(!e.target.matches('.tsel')) return;
+  const f = S.fields[+e.target.dataset.f]; S.types[f] = e.target.value;
+  typeRows(); renderCols(); renderFocus();
+  if(!S.fields.includes(S.focus) || S.types[S.focus]!=='quantitative') S.focus = S.fields.find(x=>S.types[x]==='quantitative')||null;
+  renderSugs(); normalize(); syncControls(); render();
+});
+
+/* ---------- suggestions ---------- */
+const ICONS = {
+  bar:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="4" y="6" width="7" height="22" rx="1"/><rect x="14" y="12" width="7" height="16" rx="1" opacity=".75"/><rect x="24" y="17" width="7" height="11" rx="1" opacity=".55"/><rect x="34" y="22" width="7" height="6" rx="1" opacity=".4"/></svg>',
+  hbar:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="4" y="3" width="36" height="6" rx="1"/><rect x="4" y="13" width="26" height="6" rx="1" opacity=".7"/><rect x="4" y="23" width="15" height="6" rx="1" opacity=".45"/></svg>',
+  line:'<svg viewBox="0 0 44 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,25 12,18 20,21 29,10 41,6"/></svg>',
+  multiline:'<svg viewBox="0 0 44 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,24 12,18 20,20 29,10 41,6"/><polyline points="3,28 12,26 20,24 29,22 41,17" opacity=".5"/></svg>',
+  point:'<svg viewBox="0 0 44 32" fill="currentColor"><circle cx="7" cy="25" r="2.6"/><circle cx="14" cy="20" r="2.6" opacity=".7"/><circle cx="19" cy="23" r="2.6" opacity=".6"/><circle cx="25" cy="14" r="2.6"/><circle cx="31" cy="16" r="2.6" opacity=".6"/><circle cx="37" cy="7" r="2.6" opacity=".8"/></svg>',
+  histogram:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="3" y="12" width="7.5" height="16"/><rect x="11" y="5" width="7.5" height="23" opacity=".85"/><rect x="19" y="15" width="7.5" height="13" opacity=".65"/><rect x="27" y="22" width="7.5" height="6" opacity=".5"/><rect x="35" y="25" width="6" height="3" opacity=".4"/></svg>',
+  boxplot:'<svg viewBox="0 0 44 32" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="29"/><rect x="7" y="9" width="10" height="13" fill="currentColor" fill-opacity=".25"/><line x1="7" y1="15" x2="17" y2="15"/><line x1="31" y1="6" x2="31" y2="26"/><rect x="26" y="12" width="10" height="8" fill="currentColor" fill-opacity=".25"/><line x1="26" y1="17" x2="36" y2="17"/></svg>',
+  arc:'<svg viewBox="0 0 44 32" fill="none" stroke-width="7"><circle cx="22" cy="16" r="10" stroke="currentColor" opacity=".3"/><path d="M22 6 A10 10 0 0 1 31.5 19" stroke="currentColor"/></svg>',
+  grouped:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="4" y="8" width="5" height="20"/><rect x="10" y="14" width="5" height="14" opacity=".5"/><rect x="18" y="12" width="5" height="16"/><rect x="24" y="18" width="5" height="10" opacity=".5"/><rect x="32" y="17" width="5" height="11"/><rect x="38" y="21" width="5" height="7" opacity=".5"/></svg>',
+  stacked:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="5" y="4" width="8" height="10"/><rect x="5" y="14" width="8" height="15" opacity=".45"/><rect x="18" y="10" width="8" height="8"/><rect x="18" y="18" width="8" height="11" opacity=".45"/><rect x="31" y="17" width="8" height="5"/><rect x="31" y="22" width="8" height="7" opacity=".45"/></svg>',
+  stack100:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="5" y="3" width="8" height="12"/><rect x="5" y="15" width="8" height="14" opacity=".45"/><rect x="18" y="3" width="8" height="18"/><rect x="18" y="21" width="8" height="8" opacity=".45"/><rect x="31" y="3" width="8" height="7"/><rect x="31" y="10" width="8" height="19" opacity=".45"/></svg>',
+  lollipop:'<svg viewBox="0 0 44 32" fill="currentColor" stroke="currentColor"><line x1="4" y1="6" x2="36" y2="6" stroke-width="1.6" opacity=".5"/><circle cx="36" cy="6" r="3" stroke="none"/><line x1="4" y1="16" x2="27" y2="16" stroke-width="1.6" opacity=".5"/><circle cx="27" cy="16" r="3" stroke="none"/><line x1="4" y1="26" x2="16" y2="26" stroke-width="1.6" opacity=".5"/><circle cx="16" cy="26" r="3" stroke="none"/></svg>',
+  cumline:'<svg viewBox="0 0 44 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><polyline points="3,28 10,28 10,24 18,24 18,17 26,17 26,12 34,12 34,5 41,5"/></svg>',
+  density:'<svg viewBox="0 0 44 32"><path d="M2 28 C10 28 12 6 19 6 C26 6 28 22 34 24 C38 25 40 28 42 28 Z" fill="currentColor" opacity=".35"/><path d="M2 28 C10 28 12 6 19 6 C26 6 28 22 34 24 C38 25 40 28 42 28" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  strip:'<svg viewBox="0 0 44 32" fill="currentColor"><circle cx="6" cy="8" r="2.2"/><circle cx="12" cy="6" r="2.2" opacity=".6"/><circle cx="15" cy="9" r="2.2"/><circle cx="22" cy="7" r="2.2" opacity=".6"/><circle cx="14" cy="22" r="2.2"/><circle cx="24" cy="24" r="2.2" opacity=".6"/><circle cx="29" cy="21" r="2.2"/><circle cx="37" cy="23" r="2.2" opacity=".6"/></svg>',
+  bubble:'<svg viewBox="0 0 44 32" fill="currentColor"><circle cx="9" cy="22" r="4" opacity=".5"/><circle cx="20" cy="15" r="7" opacity=".4"/><circle cx="33" cy="9" r="5" opacity=".6"/><circle cx="35" cy="25" r="2.5" opacity=".8"/></svg>',
+  rect:'<svg viewBox="0 0 44 32" fill="currentColor"><rect x="5" y="3" width="10" height="8" opacity=".9"/><rect x="17" y="3" width="10" height="8" opacity=".4"/><rect x="29" y="3" width="10" height="8" opacity=".6"/><rect x="5" y="12" width="10" height="8" opacity=".3"/><rect x="17" y="12" width="10" height="8" opacity=".75"/><rect x="29" y="12" width="10" height="8" opacity=".2"/><rect x="5" y="21" width="10" height="8" opacity=".55"/><rect x="17" y="21" width="10" height="8" opacity=".25"/><rect x="29" y="21" width="10" height="8" opacity=".85"/></svg>'
+};
+const P = () => S.fields.map(f => ({...S.prof[f], t:S.types[f]}));
+const needsAgg = f => S.rows.length > (S.prof[f]?.uniq||0);
+function suggestions(){
+  const all = P(), Q = all.filter(p=>p.t==='quantitative'), T = all.filter(p=>p.t==='temporal');
+  const N = all.filter(p=>p.t==='nominal' && p.uniq>=2 && p.uniq<=60).sort((a,b)=>a.uniq-b.uniq);
+  const Ns = N.filter(p=>p.uniq<=8);
+  const m = Q.find(p=>p.f===S.focus) || Q[0];
+  const m2 = Q.find(p=>p!==m);
+  const aggFor = p => p.rateLike ? 'mean' : 'sum';
+  const out = [];
+  if(m && T[0]){
+    const a = needsAgg(T[0].f) ? aggFor(m) : 'none';
+    out.push({icon:'line', name:'Trend over time', why:`${a==='none'?'':AGG[a]+' '}${m.f} across ${T[0].f}.`, enc:{mark:'line',x:T[0].f,y:m.f,agg:a,color:null}});
+    if(!m.rateLike) out.push({icon:'cumline', name:'Running total', why:`${m.f} added up over ${T[0].f}, so you see the total build.`, enc:{mark:'cumline',x:T[0].f,y:m.f,agg:'sum',color:null}});
+    if(Ns[0]) out.push({icon:'multiline', name:'Trend by group', why:`One line per ${Ns[0].f}, so you can compare their paths.`, enc:{mark:'line',x:T[0].f,y:m.f,agg:aggFor(m),color:Ns[0].f,variant:'straight'}});
+  }
+  if(m && N[0]){
+    const c = N.find(p=>p.uniq<=30) || N[0], a = needsAgg(c.f) ? aggFor(m) : 'none', hz = c.uniq>8;
+    out.push({icon:hz?'hbar':'bar', name:'Compare categories', why:`${a==='none'?'':AGG[a]+' '}${m.f} for each ${c.f}, largest first.`, enc:{mark:'bar',x:c.f,y:m.f,agg:a,sort:true,horizontal:hz,color:null}});
+    const g = Ns.find(p=>p.f!==c.f);
+    if(g && needsAgg(c.f)){
+      if(!m.rateLike) out.push({icon:'stacked', name:'Stacked totals', why:`Total ${m.f} per ${c.f}, with each bar split by ${g.f}.`, enc:{mark:'bar',x:c.f,y:m.f,agg:'sum',color:g.f,variant:'stacked',sort:true,horizontal:false}});
+      out.push({icon:'grouped', name:'Compare within groups', why:`${AGG[aggFor(m)]} ${m.f} per ${c.f}, with a bar for each ${g.f}.`, enc:{mark:'bar',x:c.f,y:m.f,agg:aggFor(m),color:g.f,variant:'grouped',sort:true,horizontal:false}});
+      if(!m.rateLike) out.push({icon:'stack100', name:'Mix within each group', why:`What share of each ${c.f}'s ${m.f} comes from each ${g.f}.`, enc:{mark:'bar',x:c.f,y:m.f,agg:'sum',color:g.f,variant:'normalize',sort:false,horizontal:false}});
+    }
+    if(c.uniq>8) out.push({icon:'lollipop', name:'Ranked list', why:`A lighter way to rank many ${c.f} values by ${m.f}.`, enc:{mark:'lollipop',x:c.f,y:m.f,agg:a,sort:true,horizontal:true,color:null}});
+    if(S.rows.length/c.uniq >= 4 && S.rows.length <= 3000) out.push({icon:'strip', name:'Every row by group', why:`Each row of ${m.f} as a dot, one band per ${c.f}.`, enc:{mark:'strip',x:m.f,y:c.f,agg:'none',color:null}});
+    if(S.rows.length/c.uniq >= 4) out.push({icon:'boxplot', name:'Spread within groups', why:`Median, middle half and outliers of ${m.f} for each ${c.f}.`, enc:{mark:'boxplot',x:c.f,y:m.f,agg:'none',color:null}});
+    if(Ns[0] && Ns[0].uniq<=6 && !m.rateLike) out.push({icon:'arc', name:'Share of total', why:`Each ${Ns[0].f}'s slice of total ${m.f}.`, enc:{mark:'arc',x:Ns[0].f,y:m.f,agg:'sum',color:null}});
+  }
+  if(m) out.push({icon:'histogram', name:'Distribution', why: m.skew ? `${m.f} is lopsided. See where most rows sit and spot the few large values.` : `How the values of ${m.f} are spread out.`, enc:{mark:'histogram',x:m.f,y:null,agg:'sum',color:null}});
+  if(m && S.rows.length>=15) out.push({icon:'density', name:'Smooth distribution', why:`A smoothed shape of ${m.f}${Ns[0]?`, one curve per ${Ns[0].f}`:''}.`, enc:{mark:'density',x:m.f,y:null,agg:'sum',color:Ns[0]&&Ns[0].uniq<=5?Ns[0].f:null}});
+  const m3 = Q.find(p=>p!==m && p!==m2);
+  if(m && m2 && m3) out.push({icon:'bubble', name:'Three numbers at once', why:`${m.f} against ${m2.f}, with dot size showing ${m3.f}.`, enc:{mark:'bubble',x:m.f,y:m2.f,size:m3.f,agg:'none',color:Ns[0]?.f||null}});
+  if(m && m2) out.push({icon:'point', name:'Relationship', why:`Does ${m2.f} rise or fall with ${m.f}? Includes a trend line.`, enc:{mark:'point',x:m.f,y:m2.f,agg:'none',color:Ns[0]?.f||null,variant:'linear'}});
+  if(N.length>=2) out.push({icon:'rect', name:'Combinations', why: m ? `${AGG[aggFor(m)]} ${m.f} for each ${N[0].f} and ${N[1].f} pair.` : `Rows for each ${N[0].f} and ${N[1].f} pair.`, enc:{mark:'rect',x:N[0].f,y:N[1].f,agg:m?aggFor(m):'sum',color:m?m.f:null}});
+  if(!m && N[0]) out.push({icon:'bar', name:'Count per category', why:`How many rows fall in each ${N[0].f}.`, enc:{mark:'bar',x:N[0].f,y:null,agg:'sum',sort:true,horizontal:N[0].uniq>8,color:null}});
+  if(!m && T[0]) out.push({icon:'line', name:'Rows over time', why:`How many rows there are for each ${T[0].f}.`, enc:{mark:'line',x:T[0].f,y:null,agg:'sum',color:null}});
+  return out.slice(0,12);
+}
+let SUGS = [];
+function renderSugs(){
+  SUGS = suggestions();
+  $('#sugs').innerHTML = SUGS.length ? SUGS.map((s,i)=>`<button type="button" class="sug" data-i="${i}">${ICONS[s.icon]}<div><strong>${esc(s.name)}</strong><span>${esc(s.why)}</span></div></button>`).join('')
+    : '<p class="empty">No suggestions yet. Set at least one column to Number, Date or Category.</p>';
+  S.active = -1; return SUGS;
+}
+function renderFocus(){
+  const q = S.fields.filter(f=>S.types[f]==='quantitative');
+  $('#focusRow').hidden = q.length < 2;
+  $('#focus').innerHTML = q.map(f=>`<option ${f===S.focus?'selected':''}>${esc(f)}</option>`).join('');
+}
+$('#focus').addEventListener('change', e => { S.focus = e.target.value; const s = renderSugs(); if(s.length) applySug(0, s); });
+$('#sugs').addEventListener('click', e => { const b=e.target.closest('.sug'); if(b) applySug(+b.dataset.i, SUGS); });
+function applySug(i, list){
+  const s = list[i];
+  S.enc = {mark:'bar',x:null,y:null,agg:'sum',color:null,size:null,variant:null,sort:true,horizontal:false,log:false,title:'',...s.enc};
+  S.active = i;
+  document.querySelectorAll('.sug').forEach((b,j)=>b.classList.toggle('on', j===i));
+  normalize(); syncControls(); render();
+}
+
+/* ---------- controls ---------- */
+const of = t => S.fields.filter(f => t.includes(S.types[f]));
+/* [value, label, needs a colour group] */
+const VARIANTS = {
+  bar:[['simple','Simple'],['stacked','Stacked',1],['grouped','Side by side',1],['normalize','100% stacked',1],['labels','With value labels']],
+  lollipop:[['stick','Lollipop'],['dot','Dot plot']],
+  rect:[['plain','Colour only'],['numbers','With numbers']],
+  line:[['straight','Straight'],['smooth','Smooth'],['step','Step'],['points','With points'],['ma','With moving average']],
+  area:[['single','Single'],['stacked','Stacked',1],['overlap','Overlapping',1],['normalize','100% stacked',1],['stream','Streamgraph',1]],
+  cumline:[['step','Step'],['straight','Straight']],
+  histogram:[['simple','Simple'],['stacked','Stacked by group',1],['overlap','Overlapping groups',1]],
+  density:[['overlap','Overlapping'],['stacked','Stacked',1],['cumulative','Cumulative']],
+  boxplot:[['tukey','Whiskers to 1.5 × IQR'],['minmax','Whiskers to min and max']],
+  strip:[['jitter','Jittered dots'],['ticks','Ticks']],
+  point:[['plain','Plain'],['linear','With trend line'],['loess','With smooth trend']],
+  bubble:[['plain','Plain'],['linear','With trend line']],
+  arc:[['plain','Plain'],['labels','With percentages']],
+  pie:[['plain','Plain'],['labels','With percentages']]
+};
+const groupCandidate = () => { const e=S.enc; return S.fields.find(f=>S.types[f]==='nominal' && f!==e.x && f!==e.y && S.prof[f].uniq>=2 && S.prof[f].uniq<=12) || null; };
+function variantWhy(v){ const e=S.enc, def=(VARIANTS[e.mark]||[]).find(x=>x[0]===v);
+  if(['linear','loess'].includes(v) && e.x && S.types[e.x]!=='quantitative') return 'needs a number on X';
+  if(def && def[2] && !e.color && !groupCandidate()) return 'needs a category column';
+  return ''; }
+const variantOk = v => !variantWhy(v);
+function channelOpts(mark){
+  const Q=of(['quantitative']), T=of(['temporal']), N=of(['nominal']), NT=[...N,...T];
+  switch(mark){
+    case 'histogram': return {x:Q, y:null, color:N};
+    case 'density': return {x:Q, y:null, color:N};
+    case 'strip': return {x:Q, y:N, color:N, yNone:'None (one row)'};
+    case 'bubble': return {x:[...Q,...T], y:Q, color:N, size:Q, count:false};
+    case 'lollipop': return {x:NT, y:Q, color:null, count:true};
+    case 'cumline': return {x:[...T,...Q], y:Q, color:N, count:true};
+    case 'pie': return {x:N, y:Q, color:null, count:true};
+    case 'point': return {x:[...Q,...T], y:Q, color:[...N,...Q], count:false};
+    case 'boxplot': return {x:NT, y:Q, color:null, count:false};
+    case 'arc': return {x:N, y:Q, color:null, count:true};
+    case 'rect': return {x:NT, y:NT, color:Q, count:true};
+    case 'bar': return {x:NT, y:Q, color:N, count:true};
+    default: return {x:[...T,...Q,...N], y:Q, color:N, count:true};
+  }
+}
+function normalize(){
+  const e=S.enc, o=channelOpts(e.mark);
+  if(!o.x.includes(e.x)) e.x = o.x[0] || null;
+  if(o.y){ if(e.mark==='rect'){ if(!o.y.includes(e.y) || e.y===e.x) e.y = o.y.find(f=>f!==e.x) || null; }
+           else if(!(e.y===null && (o.count||o.yNone)) && !o.y.includes(e.y)) e.y = (o.count||o.yNone) ? null : (o.y.find(f=>f!==e.x) || o.y[0] || null); }
+  else e.y = null;
+  if(o.color){ if(e.color && !o.color.includes(e.color)) e.color = null; } else e.color = null;
+  if(o.size){ if(!o.size.includes(e.size) || e.size===e.x || e.size===e.y) e.size = o.size.find(f=>f!==e.x && f!==e.y) || null; } else e.size = null;
+  const vs = VARIANTS[e.mark] || [];
+  let v = vs.find(x=>x[0]===e.variant);
+  if(!v || !variantOk(v[0])) v = vs[0];
+  e.variant = v ? v[0] : null;
+  if(v && v[2] && !e.color && o.color){ e.color = groupCandidate(); if(!e.color) e.variant = vs[0][0]; }
+  /* choosing a colour group on a plain bar or area means the parts should stack */
+  if(e.color && ['bar','area'].includes(e.mark) && ['simple','single'].includes(e.variant)) e.variant='stacked';
+  /* removing the colour group from a grouped style goes back to the plain style */
+  if(!e.color && v && v[2]) e.variant = vs[0][0];
+}
+function opt(v, label, sel){ return `<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(label)}</option>`; }
+function syncControls(){
+  const e=S.enc, m=e.mark, o=channelOpts(m);
+  $('#mark').value = m;
+  const lab = {
+    x: {histogram:'Measure',density:'Measure',strip:'Measure',arc:'Slices',pie:'Slices',rect:'Columns',boxplot:'Groups'}[m] || 'X axis',
+    y: {arc:'Slice size',pie:'Slice size',rect:'Rows',boxplot:'Measure',strip:'Groups',cumline:'Add up'}[m] || 'Y axis',
+    c: m==='rect' ? 'Shade by' : 'Colour by' };
+  $('#lx').textContent=lab.x; $('#ly').textContent=lab.y; $('#lc').textContent=lab.c;
+  $('#fx').innerHTML = o.x.length ? o.x.map(f=>opt(f,f,e.x)).join('') : '<option value="">No suitable column</option>';
+  $('#cy').hidden = !o.y;
+  if(o.y){
+    const ys = m==='rect' ? o.y.filter(f=>f!==e.x) : o.y;
+    $('#fy').innerHTML = (o.count && m!=='rect' ? opt('','Number of rows', e.y??'') : o.yNone ? opt('',o.yNone,e.y??'') : '') + ys.map(f=>opt(f,f,e.y)).join('') || '<option value="">No suitable column</option>';
+  }
+  $('#cc').hidden = !o.color;
+  if(o.color) $('#fc').innerHTML = opt('', m==='rect'?'Number of rows':'None', e.color??'') + o.color.map(f=>opt(f,f,e.color)).join('');
+  $('#cs').hidden = !o.size;
+  if(o.size) $('#fs').innerHTML = o.size.filter(f=>f!==e.x&&f!==e.y).map(f=>opt(f,f,e.size)).join('') || '<option value="">No other number column</option>';
+  $('#variant').innerHTML = (VARIANTS[m]||[]).map(([v,l,c])=>`<option value="${v}" ${v===e.variant?'selected':''} ${variantOk(v)?'':'disabled'}>${esc(l)}${variantOk(v)?'':' ('+variantWhy(v)+')'}</option>`).join('');
+  const aggOn = (m==='rect' ? !!e.color : (!!e.y && ['bar','line','area','arc','pie','lollipop'].includes(m)));
+  $('#cagg').hidden = !aggOn;
+  const noRaw = ['arc','pie','rect'].includes(m);
+  const ao = $('#agg').querySelector('option[value="none"]'); ao.hidden = ao.disabled = noRaw;
+  if(noRaw && e.agg==='none') e.agg = m==='rect' ? 'mean' : 'sum';
+  $('#agg').value = e.agg;
+  const xCat = e.x && ['nominal','id'].includes(S.types[e.x]);
+  $('#tsort').hidden = !(['bar','lollipop'].includes(m) && xCat);
+  $('#thoriz').hidden = !['bar','boxplot','lollipop'].includes(m);
+  $('#tlog').hidden = ['arc','pie','rect','histogram','density','cumline'].includes(m) || (!e.y && !['point','bubble','strip'].includes(m));
+  $('#sort').checked = e.sort; $('#horiz').checked = e.horizontal; $('#log').checked = e.log;
+  $('#title').value = e.title;
+}
+function autoPick(){ normalize(); }
+function fromControls(changed){
+  const e=S.enc;
+  if(changed==='mark'){ e.mark=$('#mark').value; normalize(); }
+  else { e.x = $('#fx').value || null; e.y = $('#cy').hidden ? null : ($('#fy').value || null);
+    e.color = $('#cc').hidden ? null : ($('#fc').value || null);
+    e.size = $('#cs').hidden ? null : ($('#fs').value || null);
+    e.variant = $('#variant').value;
+    e.agg = $('#agg').value; e.sort=$('#sort').checked; e.horizontal=$('#horiz').checked; e.log=$('#log').checked; e.title=$('#title').value.trim();
+    if(changed==='variant' && ['bar','area'].includes(e.mark) && ['simple','single','labels'].includes(e.variant)) e.color=null;
+    if(['fx','fy','variant','fc'].includes(changed)) normalize(); }
+  if(changed==='fc' && !$('#fc').value && ['bar','area'].includes(e.mark)) e.variant = VARIANTS[e.mark][0][0];
+  S.active=-1; document.querySelectorAll('.sug').forEach(b=>b.classList.remove('on'));
+  syncControls(); render();
+}
+['mark','variant','fx','fy','agg','fc','fs','sort','horiz','log'].forEach(id => $('#'+id).addEventListener('change', () => fromControls(id)));
+let tt; $('#title').addEventListener('input', () => { clearTimeout(tt); tt=setTimeout(()=>fromControls('title'), 300); });
+
+/* ---------- spec ---------- */
+function vType(f){ const t=S.types[f]; return t==='quantitative'?'quantitative':t==='temporal'?'temporal':'nominal'; }
+function fieldDef(f, mark){
+  const d = {field:f, type:vType(f), title:f};
+  if(d.type==='temporal'){
+    const yr = S.prof[f].isYear;
+    if(['bar','rect','boxplot'].includes(mark)){ d.type='ordinal'; d.timeUnit = yr?'utcyear':'utcyearmonth'; }
+    else { d.scale={type:'utc'}; if(yr) d.axis={format:'%Y'}; }
+  }
+  return d;
+}
+const countDef = () => ({aggregate:'count', type:'quantitative', title:'Number of rows'});
+function yDef(){ const e=S.enc; if(!e.y) return countDef();
+  const d = {field:e.y, type:'quantitative', title:e.y}; if(e.agg!=='none'){ d.aggregate=e.agg; d.title=`${AGG[e.agg]} ${e.y}`; } return d; }
+function autoTitle(){
+  const e=S.enc, a = e.y ? (e.agg!=='none' && e.agg ? AGG[e.agg]+' ' : '') + e.y : 'Number of rows';
+  switch(e.mark){
+    case 'histogram': case 'density': return `Distribution of ${e.x}${e.color?' by '+e.color:''}`;
+    case 'strip': return `Every value of ${e.x}${e.y?' by '+e.y:''}`;
+    case 'bubble': return `${e.y} vs ${e.x}, sized by ${e.size}`;
+    case 'cumline': return `Running total of ${e.y||'rows'}`;
+    case 'pie': case 'lollipop': return `${a} by ${e.x}`;
+    case 'point': return `${e.y} vs ${e.x}`;
+    case 'boxplot': return `Spread of ${e.y} by ${e.x}`;
+    case 'arc': return `${a} by ${e.x}`;
+    case 'rect': return e.color ? `${AGG[e.agg]||'Average'} ${e.color} by ${e.x} and ${e.y}` : `Rows by ${e.x} and ${e.y}`;
+    default: return `${a} by ${e.x}${e.color?' and '+e.color:''}`;
+  }
+}
+function ready(){ const e=S.enc, m=e.mark;
+  if(!e.x) return 'Pick a column for '+$('#lx').textContent.toLowerCase()+'. Change a column type on the left if none is listed.';
+  if(['point','bubble','boxplot','rect'].includes(m) && !e.y) return 'Pick a column for '+$('#ly').textContent.toLowerCase()+'.';
+  return null; }
+function buildSpec(){
+  const e=S.enc, m=e.mark, v=e.variant, enc={}; let mark, height=340, transform=null, layer=null;
+  const colorDef = () => { const c={...fieldDef(e.color,m), title:e.color}; delete c.scale; delete c.axis; if(c.type==='temporal') c.type='ordinal'; return c; };
+  const aggOp = () => e.y ? (e.agg==='none' ? 'sum' : e.agg) : 'count';
+  const valueTitle = () => e.y ? `${e.agg!=='none'?AGG[e.agg]+' ':''}${e.y}` : 'Number of rows';
+  switch(m){
+    case 'histogram':
+      mark={type:'bar', binSpacing:1, tooltip:true};
+      enc.x={field:e.x, type:'quantitative', bin:{maxbins:20}, title:e.x}; enc.y=countDef();
+      if(e.color){ enc.color={field:e.color, type:'nominal', title:e.color};
+        if(v==='overlap'){ enc.y.stack=null; mark.opacity=.5; } }
+      break;
+    case 'density':
+      transform=[{density:e.x, groupby:e.color?[e.color]:[], cumulative:v==='cumulative', as:[e.x,'__density']}];
+      mark = v==='cumulative' ? {type:'line', strokeWidth:2, tooltip:true} : {type:'area', opacity:e.color&&v==='overlap'?.45:.65, line:true, tooltip:true};
+      enc.x={field:e.x, type:'quantitative', title:e.x};
+      enc.y={field:'__density', type:'quantitative', title: v==='cumulative' ? 'Share of rows at or below' : 'Density', stack: v==='stacked' ? 'zero' : null};
+      if(v==='cumulative') enc.y.axis={format:'%'};
+      if(e.color) enc.color={field:e.color, type:'nominal', title:e.color}; break;
+    case 'strip':
+      enc.x={field:e.x, type:'quantitative', title:e.x};
+      if(v==='ticks'){
+        mark={type:'tick', thickness:1.5, opacity:.7, tooltip:true};
+        if(e.y){ enc.y={field:e.y, type:'nominal', title:e.y}; height={step:40}; } else height=70;
+      } else {
+        transform=[{calculate:'random()', as:'__jitter'}];
+        mark={type:'point', filled:true, size:36, opacity:.6, tooltip:true};
+        if(e.y){ enc.y={field:e.y, type:'nominal', title:e.y}; enc.yOffset={field:'__jitter', type:'quantitative', scale:{domain:[-0.2,1.2]}}; height={step:56}; }
+        else { enc.y={field:'__jitter', type:'quantitative', axis:null, scale:{domain:[-0.2,1.2]}}; height=140; }
+      }
+      if(e.color) enc.color=colorDef(); break;
+    case 'arc': case 'pie': {
+      const inner = m==='arc' ? 70 : 0; height=300;
+      if(v==='labels'){
+        transform=[{aggregate:[e.y?{op:aggOp(), field:e.y, as:'__v'}:{op:'count', as:'__v'}], groupby:[e.x]},
+                   {joinaggregate:[{op:'sum', field:'__v', as:'__t'}]}, {calculate:'datum.__v/datum.__t', as:'__pct'}];
+        enc.theta={field:'__v', type:'quantitative', stack:true, title:valueTitle()};
+        enc.color={field:e.x, type:'nominal', title:e.x, sort:{field:'__v', order:'descending'}};
+        enc.order={field:'__v', sort:'descending'};
+        layer=[{mark:{type:'arc', innerRadius:inner, outerRadius:112, padAngle:m==='arc'?0.012:0, tooltip:true}},
+               {mark:{type:'text', radius:134, fontSize:11.5, fill:tok('--ink')}, encoding:{text:{field:'__pct', type:'quantitative', format:'.0%'}}}];
+      } else {
+        mark={type:'arc', innerRadius:inner, padAngle:m==='arc'?0.012:0, tooltip:true};
+        enc.theta={...yDef(), stack:true}; enc.color={field:e.x, type:'nominal', title:e.x, sort:{field:e.y||e.x, op:e.y?(e.agg||'sum'):'count', order:'descending'}};
+        enc.order={...yDef(), sort:'descending'};
+      }
+      break; }
+    case 'rect': {
+      enc.x=fieldDef(e.x,'rect'); enc.y=fieldDef(e.y,'rect');
+      const op = e.color ? (e.agg==='none'?'mean':e.agg) : 'count', ctitle = e.color ? `${AGG[op]} ${e.color}` : 'Number of rows';
+      if(v==='numbers'){
+        const gb = [e.x, e.y];
+        transform=[{aggregate:[e.color?{op, field:e.color, as:'__v'}:{op:'count', as:'__v'}], groupby:gb}, {joinaggregate:[{op:'max', field:'__v', as:'__max'},{op:'min', field:'__v', as:'__min'}]}];
+        ['x','y'].forEach(c=>{ if(enc[c].timeUnit){ delete enc[c].timeUnit; } });
+        enc.color={field:'__v', type:'quantitative', title:ctitle};
+        layer=[{mark:{type:'rect', tooltip:true}},
+               {mark:{type:'text', fontSize:11.5}, encoding:{text:{field:'__v', type:'quantitative', format:',.3~r'}, color:{condition:{test:'datum.__v > datum.__min + (datum.__max - datum.__min) * 0.55', value:tok('--surface')}, value:tok('--ink')}}}];
+      } else {
+        mark={type:'rect', tooltip:true};
+        enc.color = e.color ? {field:e.color, type:'quantitative', aggregate:op, title:ctitle} : countDef();
+      }
+      break; }
+    case 'boxplot':
+      mark={type:'boxplot', extent: v==='minmax' ? 'min-max' : 1.5};
+      enc.x=fieldDef(e.x,'boxplot'); enc.y={field:e.y, type:'quantitative', title:e.y}; break;
+    case 'cumline': {
+      const gb = e.color ? [e.x, e.color] : [e.x];
+      transform=[{aggregate:[e.y?{op:'sum', field:e.y, as:'__v'}:{op:'count', as:'__v'}], groupby:gb},
+                 {window:[{op:'sum', field:'__v', as:'__cum'}], sort:[{field:e.x}], groupby:e.color?[e.color]:[]}];
+      mark={type:'line', interpolate: v==='straight' ? 'linear' : 'step-after', tooltip:true, point:S.rows.length<=80};
+      enc.x=fieldDef(e.x,'line'); enc.y={field:'__cum', type:'quantitative', title:`Running total of ${e.y||'rows'}`};
+      if(e.color) enc.color=colorDef(); break; }
+    case 'lollipop':
+      enc.x=fieldDef(e.x,'bar'); enc.y=yDef();
+      if(e.sort && enc.x.type==='nominal') enc.x.sort='-y';
+      if(v==='dot') mark={type:'point', filled:true, size:110, opacity:1, tooltip:true};
+      else layer=[{mark:{type:'rule', strokeWidth:2, opacity:.55}}, {mark:{type:'point', filled:true, size:110, opacity:1, tooltip:true}}];
+      break;
+    case 'point': case 'bubble': {
+      const pointMark = m==='bubble' ? {type:'point', filled:true, opacity:.55, stroke:tok('--surface'), strokeWidth:1, tooltip:true} : {type:'point', filled:true, opacity:.75, size:60, tooltip:true};
+      enc.x=fieldDef(e.x,'point'); enc.y={field:e.y, type:'quantitative', title:e.y};
+      if(m==='bubble' && e.size) enc.size={field:e.size, type:'quantitative', title:e.size, scale:{range:[30,1400]}};
+      if(e.color) enc.color=colorDef();
+      if(v==='linear' || v==='loess'){
+        const gb = e.color && S.types[e.color]==='nominal' ? [e.color] : [];
+        const t = v==='linear' ? {regression:e.y, on:e.x, groupby:gb} : {loess:e.y, on:e.x, groupby:gb, bandwidth:0.5};
+        const trendEnc = {x:{field:e.x, type:'quantitative'}, y:{field:e.y, type:'quantitative'}, size:{value:2.5}};
+        if(gb.length) trendEnc.color = {field:e.color, type:'nominal'};
+        layer=[{mark:pointMark}, {transform:[t], mark:{type:'line', strokeWidth:2.5, ...(gb.length?{}:{color:tok('--ink')})}, encoding:trendEnc}];
+        if(e.color && !gb.length) delete enc.color;
+      } else mark=pointMark;
+      break; }
+    case 'line':
+      enc.x=fieldDef(e.x,'line');
+      if(e.color) enc.color=colorDef();
+      if(v==='ma'){
+        const gb = e.color ? [e.x, e.color] : [e.x];
+        transform=[{aggregate:[e.y?{op:aggOp(), field:e.y, as:'__v'}:{op:'count', as:'__v'}], groupby:gb},
+                   {window:[{op:'mean', field:'__v', as:'__ma'}], frame:[-1,1], sort:[{field:e.x}], groupby:e.color?[e.color]:[]}];
+        enc.y={field:'__v', type:'quantitative', title:valueTitle()};
+        layer=[{mark:{type:'line', opacity:.35, strokeWidth:1.5, point:false}},
+               {mark:{type:'line', strokeWidth:3, tooltip:true}, encoding:{y:{field:'__ma', type:'quantitative', title:valueTitle()}}}];
+      } else {
+        mark={type:'line', tooltip:true, interpolate: v==='smooth'?'monotone' : v==='step'?'step-after' : 'linear', point: v==='points' || (v==='straight' && S.rows.length<=80)};
+        enc.y=yDef();
+      }
+      break;
+    default: /* bar, area */
+      mark={type:m, tooltip:true};
+      enc.x=fieldDef(e.x,m); enc.y=yDef();
+      if(e.color) enc.color=colorDef();
+      if(m==='bar' && e.sort && enc.x.type==='nominal') enc.x.sort='-y';
+      if(m==='area'){
+        mark.opacity = e.color ? (v==='overlap'?.45:.85) : .7; mark.line = v==='overlap';
+        if(e.color){ if(v==='overlap') enc.y.stack=null; else if(v==='normalize') enc.y.stack='normalize'; else if(v==='stacked') enc.y.stack='zero'; else if(v==='stream'){ enc.y.stack='center'; enc.y.axis=null; mark.interpolate='basis'; } }
+      }
+      if(m==='bar' && e.color){
+        if(v==='grouped'){ enc.xOffset={field:e.color, type:'nominal'}; enc.y.stack=null; }
+        else if(v==='normalize') enc.y.stack='normalize';
+        else enc.y.stack='zero';
+      }
+      if(enc.y.stack==='normalize'){ enc.y.axis={format:'%'}; enc.y.title=`Share of ${e.y?(e.agg!=='none'?AGG[e.agg].toLowerCase()+' ':'')+e.y:'rows'}`; }
+  }
+  if(e.log && enc.y && enc.y.type==='quantitative' && !String(enc.y.field||'').startsWith('__') && !['rect','arc','pie','histogram','density','cumline'].includes(m)) enc.y.scale={...(enc.y.scale||{}), type:'symlog'};
+  const horiz = e.horizontal && ['bar','boxplot','lollipop'].includes(m);
+  if(horiz){
+    [enc.x, enc.y] = [enc.y, enc.x];
+    if(enc.y.sort==='-y') enc.y.sort='-x';
+    if(enc.xOffset){ enc.yOffset=enc.xOffset; delete enc.xOffset; }
+    if(['nominal','ordinal'].includes(enc.y.type)) height={step: enc.yOffset ? 34 : 24};
+  }
+  if(m==='bar' && v==='labels' && !e.color){
+    const q = horiz ? 'x' : 'y', qd = enc[q];
+    const textDef = {...qd, format:',.3~r'}; delete textDef.axis; delete textDef.scale; delete textDef.title; delete textDef.stack;
+    layer=[{mark}, {mark: horiz ? {type:'text', align:'left', dx:4, fill:tok('--muted'), fontSize:11} : {type:'text', baseline:'bottom', dy:-3, fill:tok('--muted'), fontSize:11}, encoding:{text:textDef}}];
+    mark=null;
+  }
+  const spec = {$schema:'https://vega.github.io/schema/vega-lite/v5.json', title:e.title||autoTitle(), width:'container', height};
+  if(transform) spec.transform = transform;
+  if(layer){ spec.encoding = enc; spec.layer = layer; } else { spec.mark = mark; spec.encoding = enc; }
+  return spec;
+}
+function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function themeConfig(){
+  const ink=tok('--ink'), muted=tok('--muted'), line=tok('--line'), acc=tok('--accent'), surface=tok('--surface');
+  const dark = (document.documentElement.dataset.theme==='dark') || (document.documentElement.dataset.theme!=='light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const cat = dark ? ['#7ea6f4','#e7a855','#6cc79a','#e8839a','#b89ae6','#9fcf6a','#d39b6e','#6fc0d0']
+                   : ['#1f5bc4','#c27a16','#2a8a5f','#c2475f','#7a4fb0','#5c8a2b','#9b5f32','#2a8199'];
+  const font = 'Public Sans, Segoe UI, system-ui, sans-serif';
+  const ax = {labelColor:muted, titleColor:muted, gridColor:line, domainColor:line, tickColor:line, labelFont:font, titleFont:font, labelFontSize:11.5, titleFontSize:12, titleFontWeight:500, titlePadding:10};
+  return {background:null, font, view:{stroke:null}, axis:ax, axisBand:{grid:false}, legend:{labelColor:ink, titleColor:muted, labelFont:font, titleFont:font, titleFontWeight:500},
+    title:{color:ink, font:'Bricolage Grotesque, Avenir Next, system-ui, sans-serif', fontSize:16, fontWeight:600, anchor:'start', offset:14},
+    range:{category:cat, heatmap: dark ? ['#1c2943','#7ea6f4'] : ['#e2ebfa','#1f5bc4']},
+    mark:{color:acc}, arc:{stroke:surface, strokeWidth:2}, rect:{stroke:surface, strokeWidth:1},
+    boxplot:{box:{color:acc, opacity:.35}, median:{color:ink}, rule:{color:muted}, outliers:{color:acc}}, bar:{cornerRadiusEnd:2},
+    header:{labelColor:ink, titleColor:muted}};
+}
+let lastSpec=null;
+function render(){
+  renderHints();
+  const vis = $('#vis'), why = ready();
+  if(why){ vis.innerHTML = `<div class="placeholder">${esc(why)}</div>`; $('#spec').textContent=''; lastSpec=null; return; }
+  const spec = buildSpec();
+  lastSpec = spec;
+  const shown = {...spec, data:{url:S.name||'data.csv', format:{type:'csv', parse:Object.fromEntries(S.fields.filter(f=>['quantitative','temporal'].includes(S.types[f])).map(f=>[f, S.types[f]==='quantitative'?'number':'date']))}}};
+  $('#spec').textContent = JSON.stringify(reorder(shown), null, 2);
+  const live = {...spec, data:{values:S.typed}};
+  if(spec.mark && spec.mark.type==='rect') live.encoding = {...spec.encoding, color:{...spec.encoding.color, scale:{type:'linear', range:'heatmap', zero:false}}};
+  vegaEmbed(vis, live, {actions:{export:true, source:false, compiled:false, editor:true}, renderer: S.rows.length>4000 ? 'canvas' : 'svg', config:themeConfig()})
+    .catch(err => { vis.innerHTML = `<div class="placeholder">This combination could not be drawn: ${esc(err.message||err)}. Try a different chart type or column.</div>`; });
+}
+function reorder(s){ const {$schema,title,data,transform,...rest}=s; return transform ? {$schema,title,data,transform,...rest} : {$schema,title,data,...rest}; }
+
+/* ---------- hints ---------- */
+function renderHints(){
+  const e=S.enc, H=[], m=e.mark;
+  const measure = m==='rect' ? e.color : m==='histogram' ? e.x : e.y;
+  const pm = measure && S.prof[measure];
+  const B = f => `<b>${esc(f)}</b>`;
+  const pmD = ['density','strip'].includes(m) ? S.prof[e.x] : null;
+  if(pmD && pmD.skew) H.push(['info', `${B(e.x)} is skewed, so most values bunch up on the left. Log scale is not available here; a box plot or strip plot with log scale shows the bunch more clearly.`]);
+  if(m==='cumline' && pm && pm.rateLike) H.push(['warn', `${B(measure)} looks like a percentage or rate. A running total of rates rarely means anything.`]);
+  if(m==='bar' && e.color && e.variant==='normalize') H.push(['info', 'Each bar now adds up to 100%, so you compare the mix, not the size. Switch the style to Stacked to see totals.']);
+  if(['bar','area'].includes(m) && e.color && ['stacked','normalize','stream','simple'].includes(e.variant) && e.y && !['sum','none'].includes(e.agg)) H.push(['warn', `Stacking ${AGG[e.agg].toLowerCase()}s piles them on top of each other, so the total height has no meaning. Use the Side by side or Overlapping style, or switch to Total.`]);
+  if(['bar','area','histogram','density'].includes(m) && !e.color && !groupCandidate() && (VARIANTS[m]||[]).some(x=>x[2]))
+    H.push(['info', `Stacked and grouped styles split each ${m==='bar'?'bar':'shape'} by a category, such as region or product. This data has no category column with 2 to 12 values. If one of your columns is a category, change its type to Category on the left.`]);
+  if(e.variant==='ma') H.push(['info', 'The bold line is the average of each point and its two neighbours. It smooths out jumps so the underlying direction is easier to see.']);
+  if(['linear','loess'].includes(e.variant)) H.push(['info', e.variant==='linear' ? 'The trend line is the straight line that best fits the dots. A trend shows a pattern, not that one thing causes the other.' : 'The smooth trend follows the dots without forcing a straight line, so it can show curves and turning points.']);
+  if(e.variant==='labels' && ['bar'].includes(m) && e.color) H.push(['info', 'Value labels are shown only when there is no colour group, to keep stacked bars readable.']);
+  if(['arc','pie'].includes(m) && e.y && e.agg!=='sum') H.push(['warn', `Slices should add up to a whole. ${AGG[e.agg]} values do not, so use Total.`]);
+  if(m==='bubble') H.push(['info', 'Bubble area grows with the size column. People judge areas less precisely than positions, so use size for rough comparison only.']);
+  if(pm && pm.stats && pm.skew && (e.agg==='mean' || m==='histogram' || m==='point'))
+    H.push(['warn', `${B(measure)} is skewed: the average is ${fmt(pm.stats.mean)} but the median is ${fmt(pm.stats.median)}. A few large values pull the average up${e.agg==='mean'?', so Median may describe a typical row better':''}.${m==='histogram'||m==='point'?' Log scale or a box plot can help.':''}`]);
+  if(pm && pm.rateLike && e.agg==='sum' && ['bar','line','area','arc','rect'].includes(m) && (m==='rect'?e.color:e.y))
+    H.push(['warn', `${B(measure)} looks like a percentage or rate. Adding these up rarely means anything; Average or Median is usually safer.`]);
+  if(['arc','pie'].includes(m) && e.x && S.prof[e.x].uniq>6) H.push(['warn', `${S.prof[e.x].uniq} slices is a lot for a ${m==='pie'?'pie':'donut'}. A sorted bar chart is easier to compare.`]);
+  if((m==='line'||m==='area') && e.x && S.types[e.x]==='nominal') H.push(['info', 'Lines suggest change from one point to the next. They work best when the X axis is time or another ordered value.']);
+  if(['bar','line','area'].includes(m) && e.y && e.agg==='none' && e.x && needsAgg(e.x) && !e.color)
+    H.push(['info', `Several rows share each value of ${B(e.x)}. Choose Total, Average or another summary so each one gets a single value.`]);
+  [e.x,e.y,e.color].filter(Boolean).forEach(f => { if(S.types[f]==='id') H.push(['warn', `${B(f)} looks like an ID or rank. Its numbers are labels, so totals or averages of it mean nothing.`]); });
+  if(e.color && S.types[e.color]==='nominal' && S.prof[e.color].uniq>10) H.push(['info', `${B(e.color)} has ${S.prof[e.color].uniq} values. More than about 10 colours get hard to tell apart.`]);
+  [...new Set([e.x,e.y,e.color].filter(Boolean))].forEach(f => { if(S.prof[f].missing) H.push(['info', `${B(f)} has ${S.prof[f].missing} empty ${S.prof[f].missing===1?'value':'values'}, left out of the chart.`]); });
+  $('#hints').innerHTML = H.map(([k,t])=>`<div class="hint ${k}">${t}</div>`).join('');
+}
+
+/* ---------- copy & preview ---------- */
+function copy(text){
+  const msg = $('#copied');
+  const fallback = () => { const r=document.createRange(); r.selectNodeContents($('#spec')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); msg.textContent='Selected. Press Ctrl+C or ⌘C to copy.'; };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(()=>{ msg.textContent='Copied'; setTimeout(()=>msg.textContent='',2000); }).catch(fallback); }
+  else fallback();
+}
+$('#copySpec').addEventListener('click', () => { if(lastSpec) copy($('#spec').textContent); });
+$('#copyData').addEventListener('click', () => { if(lastSpec) copy(JSON.stringify(reorder({...lastSpec, data:{values:S.typed}}), null, 2)); });
+function renderPreview(){
+  const rows = S.rows.slice(0,10);
+  $('#preview').innerHTML = `<table><thead><tr>${S.fields.map(f=>`<th>${esc(f)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${S.fields.map(f=>`<td>${esc(r[f]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    <p class="note">First ${rows.length} of ${S.rows.length.toLocaleString()} rows.</p>`;
+}
+
+/* ---------- theme follow ---------- */
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => lastSpec && render());
+new MutationObserver(() => lastSpec && render()).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+/* ---------- example data ---------- */
+function sampleRows(){
+  const regions=['East','West','North','South'], products=['Solar kits','Water filters'];
+  const months=['2025-01','2025-02','2025-03','2025-04','2025-05','2025-06'];
+  const base={East:42,West:35,North:20,South:28}, mult={'Solar kits':1.3,'Water filters':0.7};
+  const rows=[]; let id=1;
+  months.forEach((mo,i)=>regions.forEach((r,j)=>products.forEach((p,k)=>{
+    let units = Math.max(3, Math.round(base[r]*mult[p]*(1+i*0.08) + ((i*7+j*3+k*5)%9) - 4));
+    if(r==='East' && p==='Solar kits' && mo==='2025-05') units *= 4;
+    rows.push({order_id:String(id++), month:mo, region:r, product:p, units:String(units),
+      revenue:String(units*(p==='Solar kits'?120:35)), return_rate:(1.2+((i+j*2+k)%5)*0.6).toFixed(1)+'%'});
+  })));
+  return rows;
+}
+function start(){
+  if(!window.vegaEmbed || !window.Papa){ $('#vis').innerHTML='<div class="placeholder">The charting library did not load. Check your connection and reload the page.</div>'; return; }
+  load(sampleRows(), ['order_id','month','region','product','units','revenue','return_rate'], 'Example: off-grid product sales', true);
+}
+start();
+})();
+</script>
+
+</body>
+</html>
